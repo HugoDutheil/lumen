@@ -4,7 +4,10 @@ __pycache__/
 build/
 dist/
 wheels/
+data/
+weights/
 *.egg-info
+.DS_Store
 
 # Virtual environments
 .venv
