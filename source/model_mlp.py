@@ -97,7 +97,7 @@ def train_mlp(train_data, train_labels, model, detection_criterion, concentratio
             #print(batch_data.dtype, next(model.parameters()).dtype)
             presence, concentrations = model(batch_data)
             display = False
-            if epoch%100==0:
+            if epoch==100:
                 display = True
             loss = compute_loss(presence, concentrations, batch_labels, detection_criterion, concentration_criterion, display)
             loss.backward()
