@@ -1,11 +1,12 @@
 #General settings of the experiment
 experiment: 
   name: "Training"
-  weights_filename: "../weights/mlp_weights.pth"
+  weights_filename: "../weights/autoencoder_weights.pth"
+  weights_classifier: "../weights/autoencoder_weights.pth"
 training: 
   num_samples: 25000
   train_split: 0.8
-  n_epochs: 300
+  n_epochs: 200
   lr: 0.003
 model: 
   hidden_dim: 512
