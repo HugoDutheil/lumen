@@ -3,6 +3,7 @@ from generator import*
 from model import*
 from model_gated import*
 from model_mlp import*
+from model_autoencoder import*
 from ast import main
 import argparse
 import yaml
@@ -72,10 +73,19 @@ def main():
         factor=0.5,
         patience=5
     )
+
+    #AutoEncoder model
+    input_dim=len(train_data[0])
+    encoder = Encoder(input_dim=len(train_data[0]), latent_dim=144, hidden_dim=512)
+    decoder = Decoder(input_dim=input_dim, latent_dim=144, hidden_dim=512)
+    criterion_auto = nn.MSELoss()
+    model_auto = Autoencoder(encoder, decoder, input_dim=input_dim, latent_dim=144, hidden_dim=512)
+    classifier = Classifier(encoder, input_dim=input_dim, latent_dim=144, hidden_dim=512)
     
     # ------------------------------- Training and testing --------------------------------------------------------------
     #Training with 2-heads model 
     weights_pth = config['experiment'].get('weights_filename')
+    weights_class = config['experiment'].get('weights_classifier')
     print(f"Weights will be saved at {weights_pth}")
     num_epochs = config['training'].get('n_epochs')
 
@@ -89,9 +99,16 @@ def main():
     #test_single_head(test_data, test_labels, len(mixed_targets[0]), model_single_head)
 
     ##Training with MLP model  
-    train_mlp(train_data, train_labels, model_MLP, detection_criterion, concentration_criterion, optimizer_mlp, num_epochs=num_epochs)
-    torch.save(model_MLP.state_dict(), weights_pth)
-    test_mlp(test_data, test_labels, model_MLP, weights_pth=weights_pth)
+    #train_mlp(train_data, train_labels, model_MLP, detection_criterion, concentration_criterion, optimizer_mlp, num_epochs=num_epochs)
+    #torch.save(model_MLP.state_dict(), weights_pth)
+    #test_mlp(test_data, test_labels, model_MLP, weights_pth=weights_pth)
 
+    ##Training with AutoEncoder 
+    train_autoencoder(train_data, model_auto, criterion_auto, num_epochs=num_epochs)
+    torch.save(encoder.state_dict(), weights_pth)
+    train_classifier(train_data, train_labels, classifier, weights_pth, detection_criterion, concentration_criterion, num_epochs=num_epochs)
+    torch.save(classifier.state_dict(), weights_class)
+    test_classifier(test_data, test_labels, classifier, weights_pth=weights_class)
+    
 if __name__ == "__main__":
     main()
