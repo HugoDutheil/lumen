@@ -10,9 +10,7 @@ from parser import Parser
 import logging
 
 logger: logging.Logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
-logging.getLogger().setLevel(logging.INFO)
-
+logging.basicConfig(level=logging.INFO)
 
 @njit
 def closest_int(x: float) -> int:
@@ -128,7 +126,7 @@ def train(data_base_path: os.Pathlike, output_path: os.Pathlike, min_wavenumber:
         return False
 
     for file in os.scandir(data_base_path):
-        if os.is_file(file, follow_symlinks=False) or not is_csv(file):
+        if os.path.isfile(file, follow_symlinks=False) or not is_csv(file):
             continue
 
         datasets_path.append(os.path.join(data_base_path, file))
@@ -168,6 +166,6 @@ def train(data_base_path: os.Pathlike, output_path: os.Pathlike, min_wavenumber:
 
         U, S, Vt = np.linalg.svd(PCA_matrix, full_matrices=False)
         
-        parser.save(file, output_path, U, S, Vt) 
+        parser.save(file, output_path, U, S, Vt)
 
     return True
