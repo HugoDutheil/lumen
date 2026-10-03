@@ -14,4 +14,4 @@ conf.yaml
 # Virtual environments
 .venv
 
-./data/*
+data/*
