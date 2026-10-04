@@ -5,52 +5,55 @@ import logging
 logger: logging.Logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
-def is_writable(path: os.PathLike) -> bool:
-    result = split_dir_file(path)
-    if result is None:
-        return False
-    
-    return os.access(path, os.W_OK)
-
-def split_dir_file(path: os.PathLike) -> tuble[os.PathLike, os.PathLike]:
-    print("Attempting to split ", path)
-    if os.path.isdir(path):
-        dir_name = path
-        file_name = f"PCA_matrix.mtx"
-        print("Was directory: created a file here")
-    
-    elif path.endswith(".mtx"):
-        print("Path ended with .mtx, checking if dir exits")
-        dir_name, file_name = os.path.split(path)
-        if not os.path.isdir(dir_name):
-            logger.error(f"No such directory: {dir_name}")
-            return save_to_new_path(title, U, S, Vt)
-        if not os.path.isfile(path):
-            print("File didn't exist yet. Creating it...")
-            with open(path, 'w'): # This creates a file if it doesn't exist yet
-                pass
-    else:
-        print("Path was neither a valid directory, nor a valid file path")
-        return None
-    print("Validated path!\n\n")
-    return dir_name, file_name
-
-
-# TODO: define what a bad path is
-def invalid_path(path:os.PathLike) -> bool:
-
-    if not is_writable(path):
-        logger.info(f"Can't write to location {path}. Insufficient privilege")
-        return True
-    
-    result = split_dir_file(path)
-    if result is None:
-        logger.info("Invalid location given, expecting either a directory or a file with the *.mtx extension.")
-        return True
-        
-    return False
 
 class Parser:
+
+    def is_writable(self, path: os.PathLike) -> bool:
+        result = self.split_dir_file(path)
+        if result is None:
+            return False
+
+        return os.access(path, os.W_OK)
+
+    def split_dir_file(self, path: os.PathLike) -> tuble[os.PathLike, os.PathLike]:
+        print("Attempting to split ", path)
+        if os.path.isdir(path):
+            dir_name = path
+            file_name = f"PCA_matrix.mtx"
+            print("Was directory: created a file here")
+
+        elif path.endswith(".mtx"):
+            print("Path ended with .mtx, checking if dir exits")
+            dir_name, file_name = os.path.split(path)
+
+            if not os.path.isdir(dir_name):
+                logger.error(f"No such directory: {dir_name}")
+                return None
+
+            if not os.path.isfile(path):
+                print("File didn't exist yet. Creating it...")
+                with open(path, 'w'): # This creates a file if it doesn't exist yet
+                    pass
+        else:
+            print("Path was neither a valid directory, nor a valid file path")
+            return None
+        print("Validated path!\n\n")
+        return dir_name, file_name
+
+
+    # TODO: define what a bad path is
+    def invalid_path(self, path:os.PathLike) -> bool:
+
+        if not self.is_writable(path):
+            logger.info(f"Can't write to location {path}. Insufficient privilege")
+            return True
+
+        result = self.split_dir_file(path)
+        if result is None:
+            logger.info("Invalid location given, expecting either a directory or a file with the *.mtx extension.")
+            return True
+
+        return False
 
     def ask_for_new_path(self):
         new_path = "/"
@@ -58,26 +61,26 @@ class Parser:
         # I'm setting which looks weird to the user since they never call it 
         while True: 
             new_path = input("Enter new path to save data : ")
-            if not invalid_path(new_path):
+            if not self.invalid_path(new_path):
                 break
         return new_path
     
-    def save_to_new_path(self, title:str, U: np.ndarray, S: np.ndarray, Vt: np.ndarray) -> None:
+    def save_to_new_path(self, title: str, U: np.ndarray, S: np.ndarray, Vt: np.ndarray, grid: np.ndarray) -> None:
             new_path = self.ask_for_new_path()
-            return self.save(new_path, title, U, S, Vt)
+            return self.save(new_path, title, U, S, Vt, grid)
 
-    def save(self, path: os.PathLike, title:str, U: np.ndarray, S: np.ndarray, Vt: np.ndarray) -> None:
+    def save(self, path: os.PathLike, title:str, U: np.ndarray, S: np.ndarray, Vt: np.ndarray, grid: np.ndarray) -> None:
         logger.info(f"Attempting to write to {path}")
 
-        if (result := split_dir_file(path)) is None:
+        if (result := self.split_dir_file(path)) is None:
             logger.error("Invalid path given. The given path either doesn't exist or isn't a valid file. Expecting either a directory or a *.mtx file")
-            return self.save_to_new_path(title, U, S, Vt)
+            return self.save_to_new_path(title, U, S, Vt, grid)
         
         path = os.path.join(*result)
-        if not is_writable(path):
+        if not self.is_writable(path):
             logger.error(f"Can't write to location {path} : Insufficient privilege")
             logger.info(f'Would you like to enter a new location?')
-            return self.save_to_new_path(title, U, S, Vt) 
+            return self.save_to_new_path(title, U, S, Vt, grid) 
 
         if os.path.getsize(path) > 0:
             confirmation: str = ""
@@ -92,15 +95,15 @@ class Parser:
                     logger.warning("Unable to save file. User aborted action")
                     return
                 case 'c':
-                    return self.save_to_new_path(title, U, S, Vt) 
+                    return self.save_to_new_path(title, U, S, Vt, grid) 
                     
                     
 
 
         string = f'{title}\n'
-        for matrix in (U, S, Vt):
+        for matrix in (U, S, Vt, grid):
             for row in matrix:
-                for value in row:
+                for value in np.atleast_1d(row): # Wrapping it to cast to list in case it's a vector or is empty which would crash the iteration process
                     string += f"{value} "
                 string = string[:-1]
                 string += "\n"
@@ -121,9 +124,9 @@ class Parser:
         title = lines[0]
         data = lines[1:]
 
-        U, S, Vt = [], [], [] 
+        U, S, Vt, grid = [], [], [], []
         line_index = 0
-        for matrix in (U, S, Vt):
+        for matrix in (U, S, Vt, grid):
             while line_index < len(data):
                 if data[line_index] == '&':
                     line_index += 1
@@ -132,7 +135,7 @@ class Parser:
                 line_index += 1
 
 
-        return np.array(U), np.array(S), np.array(Vt)
+        return title, np.array(U), np.array(S), np.array(Vt), np.array(grid)
     
 
 
