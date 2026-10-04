@@ -214,7 +214,7 @@ def test_mlp(test_data, test_labels, model, weights_pth, hidden_dim=512, presenc
     # ---------------------------------------------------------
     # Sample Examination
     # ---------------------------------------------------------
-    sample = 10
+    sample = 50
     print(f"\nSample {sample} Ground Truth")
     print(sample_y[sample])
     print("============================================")

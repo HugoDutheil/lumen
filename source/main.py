@@ -101,14 +101,14 @@ def main():
     ##Training with MLP model  
     #train_mlp(train_data, train_labels, model_MLP, detection_criterion, concentration_criterion, optimizer_mlp, num_epochs=num_epochs)
     #torch.save(model_MLP.state_dict(), weights_pth)
-    #test_mlp(test_data, test_labels, model_MLP, weights_pth=weights_pth)
+    test_mlp(test_data, test_labels, model_MLP, weights_pth=weights_pth)
 
     ##Training with AutoEncoder 
-    train_autoencoder(train_data, model_auto, criterion_auto, num_epochs=num_epochs)
-    torch.save(encoder.state_dict(), weights_pth)
-    train_classifier(train_data, train_labels, classifier, weights_pth, detection_criterion, concentration_criterion, num_epochs=num_epochs)
-    torch.save(classifier.state_dict(), weights_class)
-    test_classifier(test_data, test_labels, classifier, weights_pth=weights_class)
+    #train_autoencoder(train_data, model_auto, criterion_auto, num_epochs=num_epochs)
+    #torch.save(encoder.state_dict(), weights_pth)
+    #train_classifier(train_data, train_labels, classifier, weights_pth, detection_criterion, concentration_criterion, num_epochs=num_epochs)
+    #torch.save(classifier.state_dict(), weights_class)
+    #test_classifier(test_data, test_labels, classifier, weights_pth=weights_class)
     
 if __name__ == "__main__":
     main()
