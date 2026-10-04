@@ -20,7 +20,7 @@ def closest_int(x: float) -> int:
     tmp += tmp%2
     return tmp//2
 
-@njit
+# @njit
 def interpolate_to_grid(wn, absorbance, grid):
     valid = ~np.isnan(wn) & ~np.isnan(absorbance)
 
@@ -37,47 +37,54 @@ def interpolate_to_grid(wn, absorbance, grid):
     result[inside] = np.interp(grid[inside], wn, absorbance)
 
     return result
-@njit
-def is_csv(path: os.Pathlike) -> bool:
+
+def is_csv(path: os.PathLike) -> bool:
     """
     Returns whether or not the provided file is a csv file
     """
     root, extension = os.path.splitext(path)
     return extension == ".csv"
 
-def calculate_PCA(file: os.Pathlike, grid: np.array) -> np.ndarray:
+@njit
+def calculate_pca_acceled(values, grid):
+    n_spectra = values.shape[1] // 2
+    result = np.empty((n_spectra, grid.size), dtype=np.float64)
+
+    for spectrum in range(n_spectra):
+        wn = values[:, 2 * spectrum]
+        absorbance = values[:, 2 * spectrum + 1]
+
+        result[spectrum] = interpolate_to_grid(
+            wn,
+            absorbance,
+            grid
+        )
+
+    return result
+
+def calculate_PCA(file: os.PathLike, grid: np.array) -> np.ndarray:
         data = pd.read_csv(file, dtype=str)
-        PCA_matrix = []
-        entry_names = []
-
-        logger.info(f"Working on {file}")
-        for i in tqdm(range(0, data.shape[1]-2, 2)):
-            entry_names.append(data.axes[-1][i+1])
-            entry = data.iloc[2:, i:i + 2]
-            waveNumber = np.array(entry.iloc[:, 0].astype(float))
-            absorbance = np.array(entry.iloc[:, 1].astype(float))
-            
-            PCA_matrix.append(interpolate_to_grid(waveNumber, absorbance, grid))
-    
-        return np.array(PCA_matrix)
+        values = data.iloc[2:].to_numpy(dtype=np.float64)
+        
+        return calculate_pca_acceled(values, grid)
 
 
-def train(data_base_path: os.Pathlike, output_path: os.Pathlike, min_wavenumber: int, max_wavenumber: int, step_size: float = np.nan, number_steps: int = np.nan) -> bool:
+def train(data_base_path: os.PathLike, output_path: os.PathLike, min_wavenumber: float, max_wavenumber: float, step_size: float = np.nan, number_steps: int = np.nan) -> bool:
     """
     Trains the PCA matrix based on the data in the given directory and output the matrix in the given file 
 
     Arg:
-        data_base_path: os.Pathlike 
+        data_base_path: os.PathLike 
             if directory: path in which to retrieve the files to train on
             if file: directly uses the file
 
-        output_path: os.Pathlike
+        output_path: os.PathLike
             file path to which we dump the matrix
 
-        min_wavenumber: int
+        min_wavenumber: float
             minimum value taken by the spectrum
 
-        max_wavenumber: int
+        max_wavenumber: float
             maximum value taken by the spectrum
         
     Optional args:
@@ -114,7 +121,7 @@ def train(data_base_path: os.Pathlike, output_path: os.Pathlike, min_wavenumber:
         
     isFile: bool = False
     datasets_path = []
-    if os.path.isfile():
+    if os.path.isfile(data_base_path):
         isFile = True
 
     if isFile and not is_csv(data_base_path):
@@ -125,13 +132,16 @@ def train(data_base_path: os.Pathlike, output_path: os.Pathlike, min_wavenumber:
         logger.error(f"No such file or directory: {data_base_path}")
         return False
 
-    for file in os.scandir(data_base_path):
-        if os.path.isfile(file, follow_symlinks=False) or not is_csv(file):
-            continue
+    if isFile:
+        datasets_path.append(data_base_path)
+    else:
+        for file in os.scandir(data_base_path):
+            if os.path.isfile(file, follow_symlinks=False) or not is_csv(file):
+                continue
 
-        datasets_path.append(os.path.join(data_base_path, file))
+            datasets_path.append(os.path.join(data_base_path, file))
 
-    if not isFile and not datasets_path:
+    if not datasets_path:
         logger.error(f"Directory contains to usable file, expecting *.csv formated data: {data_base_path}")
         return False
 
@@ -166,6 +176,7 @@ def train(data_base_path: os.Pathlike, output_path: os.Pathlike, min_wavenumber:
 
         U, S, Vt = np.linalg.svd(PCA_matrix, full_matrices=False)
         
-        parser.save(file, output_path, U, S, Vt)
+        parser = Parser()
+        parser.save(output_path, file, U, S, Vt, filtered_grid)
 
     return True
