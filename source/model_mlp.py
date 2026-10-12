@@ -4,6 +4,7 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
+from main import device
 
 class MLP(nn.Module):
     def __init__(self, input_dim=3601, hidden_dim=512, compounds=144, channels=1):
@@ -33,16 +34,15 @@ class MLP(nn.Module):
 
         gated_concs = probs * concs
 
-        return probs, gated_concs
+        return probs, gated_concs, probs_raw, concs_raw
 
-def compute_loss(presence_probs, gated_concentrations, weights, detection_criterion, concentration_criterion, display=False):
+def compute_loss(presence_probs, concentrations, weights, detection_criterion, concentration_criterion, display=False):
     presence_target = (weights > 0).float()
-
     detection_loss = detection_criterion(presence_probs, presence_target)
 
     pos_mask = presence_target.bool()  # (N, 144), elementwise
     if pos_mask.sum() > 0:
-        conc_loss = concentration_criterion(gated_concentrations[pos_mask], weights[pos_mask])
+        conc_loss = concentration_criterion(concentrations[pos_mask], weights[pos_mask])
     else:
         conc_loss = torch.tensor(0.0, device=presence_probs.device)
 
@@ -57,7 +57,7 @@ def compute_loss(presence_probs, gated_concentrations, weights, detection_criter
 @torch.no_grad()
 def predict(model, x, presence_prob_cutoff=0.5):
     # Model now returns ready-to-use probabilities and gated concentrations
-    presence_probs, gated_concentrations = model(x)
+    presence_probs, gated_concentrations, probs_raw, concs = model(x)
     
     # 1. Detection decision based directly on the model's output
     detected_mask = presence_probs > presence_prob_cutoff
@@ -93,13 +93,15 @@ def train_mlp(train_data, train_labels, model, detection_criterion, concentratio
     for epoch in range(num_epochs):
         epoch_loss = 0.0
         for i, (batch_data, batch_labels) in enumerate(tqdm(dataloader)):
+            batch_data = batch_data.to(device)
+            batch_labels = batch_labels.to(device)
             optimizer.zero_grad()
             #print(batch_data.dtype, next(model.parameters()).dtype)
-            presence, concentrations = model(batch_data)
+            presence, concentrations, probs_raw, concs = model(batch_data)
             display = False
             if epoch==100:
                 display = True
-            loss = compute_loss(presence, concentrations, batch_labels, detection_criterion, concentration_criterion, display)
+            loss = compute_loss(probs_raw, concs, batch_labels, detection_criterion, concentration_criterion, display)
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
@@ -116,7 +118,7 @@ def train_mlp(train_data, train_labels, model, detection_criterion, concentratio
     plt.ylabel('Loss')
     plt.legend()
     plt.grid()
-    plt.show()
+    #plt.show()
     model.weights = model.block[0].weight.data.clone().detach().cpu().numpy()  # Store the weights of the first convolutional layer
 
 def test_mlp(test_data, test_labels, model, weights_pth, hidden_dim=512, presence_threshold=0.5):
@@ -190,6 +192,14 @@ def test_mlp(test_data, test_labels, model, weights_pth, hidden_dim=512, presenc
         print(f"Pred Present count: {pred_labels[0].sum()}")
         print(f"Missed count:       {misses_per_sample[0]}")
         print(f"Hallucinated count: {hallucinations_per_sample[0]}")
+
+        bins = [0, 0.02, 0.05, 0.10, 0.20, 1.0]
+        true_w = sample_y[present_mask]
+        found = pred_labels[present_mask] == 1
+        for lo, hi in zip(bins[:-1], bins[1:]):
+            m = (true_w > lo) & (true_w <= hi)
+            if m.any():
+                print(f"proportion {lo:.0%}–{hi:.0%}: recall {found[m].mean():.1%}  ({m.sum()} components)")
 
         # ---------------------------------------------------------
         # Top-K Ranking Accuracy
