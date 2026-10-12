@@ -8,5 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+<<<<<<< HEAD
 
 data/*
+=======
+>>>>>>> a0fd7b8 (first commit)
