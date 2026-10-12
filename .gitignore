@@ -8,6 +8,8 @@ data/
 weights/
 *.egg-info
 .DS_Store
+conf.yaml
+.vscode/
 
 # Virtual environments
 .venv
