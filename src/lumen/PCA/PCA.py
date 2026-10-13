@@ -6,7 +6,7 @@ from scipy.optimize import nnls
 import matplotlib.pyplot as plt
 import re
 from tqdm import tqdm
-from parser import Parser
+from lumen.PCA.parser import Parser
 import logging
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ def closest_int(x: float) -> int:
     tmp += tmp%2
     return tmp//2
 
-# @njit
+@njit
 def interpolate_to_grid(wn, absorbance, grid):
     valid = ~np.isnan(wn) & ~np.isnan(absorbance)
 
@@ -46,7 +46,7 @@ def is_csv(path: os.PathLike) -> bool:
     return extension == ".csv"
 
 @njit
-def calculate_pca_acceled(values, grid):
+def calculate_pca_acceled(values: np.array, grid: np.array) -> np.ndarray:
     n_spectra = values.shape[1] // 2
     result = np.empty((n_spectra, grid.size), dtype=np.float64)
 
