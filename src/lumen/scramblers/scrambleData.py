@@ -86,7 +86,7 @@ def pad_columns(columns):
 
 base_path = os.path.join(
     os.path.dirname(__file__),
-    "../../data"
+    "../../../data"
 )
 
 datasets_path = [

@@ -1,6 +1,6 @@
-from PCA import train, interpolate_to_grid, closest_int
+from lumen.PCA.PCA import train, interpolate_to_grid, closest_int
 from tqdm import tqdm
-from parser import Parser
+from lumen.PCA.parser import Parser
 import pandas as pd
 import numpy as np
 from scipy.optimize import nnls
@@ -132,4 +132,4 @@ def test_on_mixtures(do_training: bool = True) -> None:
         print(f"Errors made (didn't predict the top 2 correctly): {errors} ~ {errors/2*(mixed_data.shape[1]//2 - 1)}%")
 
 
-test_on_mixtures(False)
+test_on_mixtures(True)
