@@ -8,6 +8,13 @@ from PCA_aided_pipe import*
 from ast import main
 import argparse
 import yaml
+import os
+
+# PROBLEMS : 
+# - presence_threshold does not seem to be detected
+# - model does not scale anymore (1999 : 72.8% of top-1 match, drops to 18.4% with 3999)
+# - thousands of hallucinations and missed components
+
 
 # For the path, we go to the root of the current project and then to the data folder, where we have the data.csv file.  
 file_path = '../data/PSLC.csv'
@@ -146,19 +153,29 @@ def main():
     #parser = Parser
         case "pca_mlp":
             pca_dim = config['model'].get('pca_dim')
+            pca_path = os.path.splitext(weights_pth)[0] + "_pca.joblib"
+            train_model = config['training'].get('train', True)
             model_PCA = MLP(input_dim=pca_dim, hidden_dim=hidden_dim, compounds=144, channels=1).to(device)
             pca_pipe = PCAPipeline(model_PCA, pca_dim=pca_dim)
-            train_pca, test_pca = run_pca(pca_pipe, train_data, test_data)
+            train_pca, test_pca = run_pca(
+                pca_pipe, train_data, test_data,
+                pca_path=pca_path if (train_model and save_results) or not train_model else None,
+                fit=train_model,
+            )
             #analyze_pca(train_pca, train_labels)
             pos_weight = torch.tensor([7.0])
             detection_criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
             concentration_criterion = nn.L1Loss()
             criterion_mlp = nn.L1Loss() #nn.MSELoss()
             optimizer_mlp = torch.optim.Adam(model_PCA.parameters(), lr = lr)
-            train_mlp(train_pca, train_labels, model_PCA, detection_criterion, concentration_criterion, optimizer_mlp, num_epochs=num_epochs)
-            if save_results:
-                torch.save(model_PCA.state_dict(), weights_pth)
-            test_mlp(test_pca, test_labels, model_PCA, weights_pth=weights_pth, hidden_dim=hidden_dim, presence_threshold=0.5)
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer_mlp, mode='min', factor=0.5, patience=5)
+            if train_model:
+                train_mlp(train_pca, train_labels, model_PCA, detection_criterion, concentration_criterion,
+                          optimizer_mlp, num_epochs=num_epochs, scheduler=scheduler)
+                if save_results:
+                    torch.save(model_PCA.state_dict(), weights_pth)
+            test_mlp(test_pca, test_labels, model_PCA, weights_pth=weights_pth, hidden_dim=hidden_dim,
+                     presence_threshold=0.4, labels=labels)
 
         case _:
             raise ValueError(f"Unknown model type {model} specified in conf.yaml")

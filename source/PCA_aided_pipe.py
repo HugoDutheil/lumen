@@ -7,6 +7,8 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from scipy.signal import savgol_filter
 from tqdm import tqdm
+import joblib
+import os
 
 class PCAPipeline():
     def __init__(self, model, pca_dim=160, parser=None):
@@ -14,12 +16,28 @@ class PCAPipeline():
         self.pca_dim = pca_dim
         self.model = model
 
-def run_pca(pcapipe: PCAPipeline, train_data, test_data):
-    pca_dim = pcapipe.pca_dim
-    pca = PCA(n_components=pca_dim)
+def run_pca(pcapipe: PCAPipeline, train_data, test_data, pca_path=None, fit=True):
+    """
+    fit=True  : fit PCA on train_data, and save it to pca_path if given.
+    fit=False : load the PCA from pca_path (must be the one used at training time).
+    """
     train_d = preprocess_spectra(train_data)
     test_d = preprocess_spectra(test_data)
-    train_pca = pca.fit_transform(train_d)
+
+    if fit:
+        pca = PCA(n_components=pcapipe.pca_dim)
+        train_pca = pca.fit_transform(train_d)
+        if pca_path is not None:
+            joblib.dump(pca, pca_path)
+            print(f"PCA saved at {pca_path}")
+    else:
+        if pca_path is None or not os.path.exists(pca_path):
+            raise FileNotFoundError(f"No saved PCA at {pca_path}: train first (fit=True).")
+        pca = joblib.load(pca_path)
+        if pca.n_components_ != pcapipe.pca_dim:
+            raise ValueError(f"Saved PCA has {pca.n_components_} components, config says {pcapipe.pca_dim}.")
+        train_pca = pca.transform(train_d)
+
     test_pca = pca.transform(test_d)
     return train_pca, test_pca
 

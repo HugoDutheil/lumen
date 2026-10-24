@@ -42,6 +42,7 @@ def parse_csv(csv_path, target_grid=np.linspace(400,4000,3601)):
 
             intens_clipped = np.clip(intens, 1e-4, 1.0)
             intens = -np.log10(intens_clipped)
+            #measurement_type = "absorption"
 
         # Interpolate to target grid
         interpolator = interp1d(wn, intens, kind='linear', bounds_error=False, fill_value="extrapolate")
