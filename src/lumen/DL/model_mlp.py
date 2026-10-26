@@ -74,9 +74,9 @@ def predict(model, x, presence_prob_cutoff=0.5):
     all_zero_mask = (detected_mask.sum(dim=-1, keepdim=True) == 0)
     final_concentrations = final_concentrations.masked_fill(all_zero_mask, 0.0)
 
-    return detected_mask.float(), final_concentrations
+    return presence_probs, detected_mask.float(), final_concentrations
 
-def train_mlp(train_data, train_labels, model, detection_criterion, concentration_criterion, optimizer, num_epochs=100, batch_size=32):
+def train_mlp(train_data, train_labels, model, detection_criterion, concentration_criterion, optimizer, num_epochs=100, batch_size=32, scheduler=None):
     # Prepare data, convert to torch tensors and reshape for CNN input
     #print(f"The shape of the train dataset is {len(train_data[0])}")
     data = torch.tensor(train_data, dtype=torch.float32)#.unsqueeze(1)
@@ -89,7 +89,8 @@ def train_mlp(train_data, train_labels, model, detection_criterion, concentratio
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)  
     losses = []         
     model.train()
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
+    if scheduler is not None:
+        scheduler = scheduler
     for epoch in range(num_epochs):
         epoch_loss = 0.0
         for i, (batch_data, batch_labels) in enumerate(tqdm(dataloader)):
@@ -121,7 +122,7 @@ def train_mlp(train_data, train_labels, model, detection_criterion, concentratio
     #plt.show()
     model.weights = model.block[0].weight.data.clone().detach().cpu().numpy()  # Store the weights of the first convolutional layer
 
-def test_mlp(test_data, test_labels, model, weights_pth, hidden_dim=512, presence_threshold=0.5):
+def test_mlp(test_data, test_labels, model, weights_pth, hidden_dim=512, presence_threshold=0.5, labels=None):
     # must match training-time args exactly
     print(f"The shape of the train dataset is {len(test_data[0])}")
     model = MLP(input_dim=len(test_data[0]), hidden_dim=hidden_dim)  
@@ -133,14 +134,15 @@ def test_mlp(test_data, test_labels, model, weights_pth, hidden_dim=512, presenc
         sample_y = test_labels
 
         # Using your predict() function which handles the masking and gating internally
-        presence_prob_tensor, final_concentrations_tensor = predict(model, sample_x)
-        
-        presence_prob = presence_prob_tensor.cpu().numpy()
-        final_pred = final_concentrations_tensor.cpu().numpy()
-        
-        # Ground truth and predicted presence masks
+        presence_probs_t, detected_mask_t, final_conc_t = predict(
+            model, sample_x, presence_prob_cutoff=presence_threshold
+        )
+        presence_probs = presence_probs_t.cpu().numpy()   # keep for threshold sweeps / calibration
+        pred_labels    = detected_mask_t.cpu().numpy()    # already thresholded, do NOT threshold again
+        final_pred     = final_conc_t.cpu().numpy()
+
         presence_labels = (sample_y > 0).astype(np.float32)
-        pred_labels = (presence_prob > presence_threshold).astype(np.float32)
+        pred_labels = (presence_probs > presence_threshold).astype(np.float32)
 
         # ---------------------------------------------------------
         # Calculate hallucinations (False Positives) and misses (False Negatives)
@@ -225,11 +227,23 @@ def test_mlp(test_data, test_labels, model, weights_pth, hidden_dim=512, presenc
     # Sample Examination
     # ---------------------------------------------------------
     sample = 50
+    pred_y = presence_labels[sample]
+    gt_y = pred_labels[sample]
     print(f"\nSample {sample} Ground Truth")
     print(sample_y[sample])
     print("============================================")
-    print(f"Sample {sample} Predicted Presence Mask")
-    print(pred_labels[sample])
+    # print(f"Sample {sample} Predicted Presence Mask")
+    # print(pred_labels[sample])
     print("============================================")
     print(f"Sample {sample} Predicted Concentrations")
     print(final_pred[sample])
+    print("============================================")
+    # sample_missed = (presence_labels[sample] == 1) & (pred_labels[sample] == 0)
+    # sample_hallucinated = (presence_labels[sample] == 0) & (pred_labels[sample] == 1)
+    # sample_true_positive = (presence_labels[sample] == 1) & (pred_labels[sample] ==1)
+    # if labels is not None:  
+    #     label_missed = labels[sample_missed]
+    #     label_true = labels[sample_true_positive]
+    # print(f"Labels of the missed components: {label_missed}")
+    # print(f"Labels of the correctly identified components {label_true}")
+    
