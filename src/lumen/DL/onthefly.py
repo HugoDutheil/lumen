@@ -69,7 +69,7 @@ def train_onthefly(model, train_loader, Z_val, y_val, loss_fn, optimizer, schedu
     best = float("inf")
     history = []
     #for epoch in range(num_epochs):
-    for epoch in enumerate(tqdm(num_epochs)):
+    for epoch in range(num_epochs):
         model.train()
         running = 0.0
         for _ in range(steps_per_epoch):

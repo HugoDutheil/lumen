@@ -202,8 +202,13 @@ from torch.utils.data import DataLoader                                   # NEW
 from pathlib import Path
 
 # For the path, we go to the root of the current project and then to the data folder, where we have the data.csv file.
-file_path = Path("../data/PSCL.csv").resolve().parent
-config_path = Path("../conf.yaml").resolve().parent
+ROOT = Path(__file__).resolve().parents[3]
+CONF_PATH = ROOT / "conf.yaml"
+DATA_PATH = ROOT / "data"
+WEIGHTS_PATH = ROOT / "weights"
+file_path = DATA_PATH / "PSLC.csv"
+config_path = CONF_PATH
+print(file_path, config_path)
 if torch.backends.mps.is_available() and torch.backends.mps.is_built():
     device = torch.device("cpu")
 elif torch.cuda.is_available():
@@ -228,7 +233,7 @@ def main():
     parser.add_argument(
         "--config",
         type=str,
-        default="../conf.yaml",
+        default=CONF_PATH,
         help="Path to the configuration file"
     )
     args = parser.parse_args()
@@ -241,8 +246,8 @@ def main():
     wn = df_clean.columns.astype(float).to_numpy()            # NEW: wavenumber axis
     n_compounds = len(pure)
 
-    weights_pth = Path(config['experiment'].get('weights_filename')).resolve().parent
-    weights_class = Path(config['experiment'].get('weights_classifier')).resolve().parent
+    weights_pth = WEIGHTS_PATH / config['experiment'].get('weights_filename')
+    weights_class = WEIGHTS_PATH / config['experiment'].get('weights_classifier')
     print(f"Weights will be saved at {weights_pth}")
     num_epochs = config['training'].get('n_epochs')
     model_name = config['model'].get('type')                  # moved up: decides which data to build
@@ -318,15 +323,13 @@ def main():
                 torch.save(classifier.state_dict(), weights_class)
             test_classifier(test_data, test_labels, classifier, weights_pth=weights_class)
 
-    #PCA Pipeline (REWRITTEN: raw spectra -> StandardScaler -> PCA -> MLP, trained on the fly)
         case "pca_mlp":
             pca_dim = config['model'].get('pca_dim')
             transform_path = os.path.splitext(weights_pth)[0] + "_transform.joblib"
             train_model = config['training'].get('train', True)
-            # Where training writes its best weights: your file only if save_results, otherwise a scratch file
             run_weights = weights_pth if save_results else os.path.splitext(weights_pth)[0] + "_lastrun.pth"
 
-            # 1) Scaler + PCA: fitted once on a fixed batch (seed 0) when training, reloaded otherwise
+            # Scaler + PCA: fitted once on a fixed batch (seed 0) when training, reloaded otherwise
             if train_model:
                 X_fit, _ = generate_batch(pure, wn, config['training'].get('fit_samples', 20000), np.random.default_rng(0))
                 scaler = StandardScaler().fit(X_fit)
@@ -339,7 +342,7 @@ def main():
             Z_val = transform(X_val).astype(np.float32)
             Z_test = transform(X_test).astype(np.float32)
 
-            # 2) Model and loss
+            # Model and loss
             model_PCA = MLP(input_dim=pca_dim, hidden_dim=hidden_dim, compounds=n_compounds, channels=1).to(device)
             pos_weight = torch.tensor([float(config['training'].get('pos_weight', 1.0))])
             detection_criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
@@ -347,7 +350,7 @@ def main():
             # model outputs (probs, gated_concs, probs_raw, concs_raw): loss uses the logits and raw concs
             loss_fn = lambda out, y: compute_loss(out[2], out[3], y, detection_criterion, concentration_criterion)
 
-            # 3) Training on fresh batches every step
+            # Training on fresh batches every step
             if train_model:
                 optimizer_mlp = torch.optim.Adam(model_PCA.parameters(), lr=float(lr))
                 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer_mlp, mode='min', factor=0.5, patience=5)
@@ -359,7 +362,7 @@ def main():
                                num_epochs=num_epochs, steps_per_epoch=config['training'].get('steps_per_epoch', 200),
                                device=device, best_path=run_weights)
 
-            # 4) Presence threshold chosen on the VALIDATION set, then a single evaluation on the test set
+            # Presence threshold chosen on validation set, then a single evaluation on the test set
             eval_weights = run_weights if train_model else weights_pth
             model_PCA.load_state_dict(torch.load(eval_weights, map_location=device))
             model_PCA.eval()
@@ -370,7 +373,7 @@ def main():
             test_mlp(Z_test, y_test, model_PCA, weights_pth=eval_weights, hidden_dim=hidden_dim,
                      presence_threshold=threshold, labels=labels)
 
-    # NNLS physics baseline (NEW): no training, only a z-score threshold chosen on validation
+    # NNLS physics baseline: no training, only a z-score threshold chosen on validation
         case "nnls":
             nn_cfg = config.get('nnls', {})
             sum_to_one = nn_cfg.get('sum_to_one', True)
