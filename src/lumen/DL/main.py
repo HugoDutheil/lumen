@@ -199,9 +199,11 @@ import joblib                                                             # NEW
 from sklearn.preprocessing import StandardScaler                          # NEW
 from sklearn.decomposition import PCA                                     # NEW
 from torch.utils.data import DataLoader                                   # NEW
+from pathlib import Path
 
 # For the path, we go to the root of the current project and then to the data folder, where we have the data.csv file.
-file_path = '../data/PSLC.csv'
+file_path = Path("../data/PSCL.csv").resolve().parent
+config_path = Path("../conf.yaml").resolve().parent
 if torch.backends.mps.is_available() and torch.backends.mps.is_built():
     device = torch.device("cpu")
 elif torch.cuda.is_available():
@@ -239,8 +241,8 @@ def main():
     wn = df_clean.columns.astype(float).to_numpy()            # NEW: wavenumber axis
     n_compounds = len(pure)
 
-    weights_pth = config['experiment'].get('weights_filename')
-    weights_class = config['experiment'].get('weights_classifier')
+    weights_pth = Path(config['experiment'].get('weights_filename')).resolve().parent
+    weights_class = Path(config['experiment'].get('weights_classifier')).resolve().parent
     print(f"Weights will be saved at {weights_pth}")
     num_epochs = config['training'].get('n_epochs')
     model_name = config['model'].get('type')                  # moved up: decides which data to build
