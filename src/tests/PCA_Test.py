@@ -11,7 +11,7 @@ import logging
 logger: logging.Logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-def test_on_mixtures(do_training: bool = True) -> None:
+def test_on_mixtures(do_training: bool = True, print_errors: bool = False) -> None:
     file = os.path.join(
                 os.path.dirname(__file__),
                 "../../data/scrambled/pure/Primpke_FTIR_Microplastics_converted_scrambled_pure.csv"
@@ -34,10 +34,12 @@ def test_on_mixtures(do_training: bool = True) -> None:
     parser = Parser()
     training_file, U, S, Vt, filtered_grid = parser.parse(os.path.join(os.path.dirname(__file__), "../../data/test_matrix.mtx"))
     print(U.shape, S.shape, Vt.shape, filtered_grid.shape)
+    S = S.squeeze()
+    filtered_grid = filtered_grid.squeeze()
     
-    PCA_matrix = (U*S.squeeze())@Vt
+    PCA_matrix = (U*S)@Vt
     np.nan_to_num(PCA_matrix, nan=0.)
-    scores = U*S.squeeze()
+    scores = U*S
 
     print("Scores", scores.shape)
       
@@ -67,7 +69,7 @@ def test_on_mixtures(do_training: bool = True) -> None:
     #                 ~np.isnan(mixed_absorbance)
     #             )
     #         )
-            
+             
             mixture = interpolate_to_grid(mixed_waveNumber, mixed_absorbance, filtered_grid).astype(float)
             np.nan_to_num(mixture, nan=0.)
             mixture_scores = (Vt@mixture).T
@@ -88,10 +90,10 @@ def test_on_mixtures(do_training: bool = True) -> None:
             coefficients /= coefficients.sum()
                 
             sorted_indices = np.argsort(coefficients)[::-1]
-
+#             print("Sorted entries: ", entry_names[sorted_indices[:10]]) 
             predictions = entry_names[sorted_indices[:2]]
-            prediction_1 = re.match(r'^(.*?)_(\d*?)?', predictions[0]).groups()[0]
-            prediction_2 = re.match(r'^(.*?)_(\d*?)?', predictions[1]).groups()[0]
+            prediction_1 = re.match(r'^(.*)_\d+$', predictions[0]).group(1)
+            prediction_2 = re.match(r'^(.*)_\d+$', predictions[1]).group(1)
 
             selected_indices = []
             seen_names = set()
@@ -109,27 +111,30 @@ def test_on_mixtures(do_training: bool = True) -> None:
 
             first, second = mixed_entry_name.split(' + ')
             
-            firstName, firstPercent = re.match(r'^(.*?)_(\d*?)%$', first).groups()
-            secName, secPercent = re.match(r'^(.*?)_(\d*?)%$', second).groups()
+            firstName, firstPercent = re.match(r'^(.*)_(\d+)%$', first).groups()
+            secName, secPercent = re.match(r'^(.*)_(\d+)%$', second).groups()
             
-            print(prediction_1, firstName, prediction_2, secName) 
-
             idxFirst = [idx for idx in sorted_indices if re.match(firstName, entry_names[idx])]
             idxSec = [idx for idx in sorted_indices if re.match(secName, entry_names[idx])]
 
             if idxFirst and idxSec:
-                foundFirstPercent = coefficients[idxFirst[0]]*100
-                foundSecPercent = coefficients[idxSec[0]]*100
-
-                loss += ((int(firstPercent) - foundFirstPercent)**2 + (int(secPercent) - foundSecPercent)**2)**0.5
+                foundFirstPercent = coefficients[idxFirst[0]]*100.
+                foundSecPercent = coefficients[idxSec[0]]*100.
+                loss += (np.abs(float(firstPercent) - foundFirstPercent) + np.abs(float(secPercent) - foundSecPercent))
                 errors += int(prediction_1 not in (firstName, secName)) + int(prediction_2 not in (firstName, secName))
+                if prediction_1 not in (firstName, secName) and print_errors:
+                    print("Prediction: ", prediction_1)
+                    print("True values: ", firstName, secName)
+                if prediction_2 not in (firstName, secName) and print_errors:
+                    print("Prediction: ", prediction_2)
+                    print("True values: ", firstName, secName)
             else: 
                 unprocessable += 1
 
             pbar.set_postfix({"loss" : f'{loss:.2f}', "unprocessable":f'{unprocessable}', "Errors":f'{errors}'})
             pbar.update(1)
         print(f'Total loss of file: {loss}\n Mean loss of file: {loss/(mixed_data.shape[1]//2 - 1)}') 
-        print(f"Errors made (didn't predict the top 2 correctly): {errors} ~ {errors/2*(mixed_data.shape[1]//2 - 1)}%")
+        print(f"Errors made (didn't predict the top 2 correctly): {errors} ~ {100*errors/(2*(mixed_data.shape[1]//2 - 1))}%")
 
 
-test_on_mixtures(True)
+test_on_mixtures(False, False)

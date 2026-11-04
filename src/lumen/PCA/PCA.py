@@ -21,7 +21,7 @@ def closest_int(x: float) -> int:
     return tmp//2
 
 @njit
-def interpolate_to_grid(wn, absorbance, grid):
+def interpolate_to_grid(wn, absorbance, grid) -> np.array:
     valid = ~np.isnan(wn) & ~np.isnan(absorbance)
 
     wn = wn[valid]

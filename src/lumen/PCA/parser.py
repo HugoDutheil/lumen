@@ -3,7 +3,7 @@ import os
 import logging
 
 logger: logging.Logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 class Parser:
