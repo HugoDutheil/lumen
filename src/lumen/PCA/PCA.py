@@ -6,7 +6,7 @@ from scipy.optimize import nnls
 import matplotlib.pyplot as plt
 import re
 from tqdm import tqdm
-from lumen.PCA.parser import Parser
+from src.lumen.PCA.parser import Parser
 import logging
 
 logger: logging.Logger = logging.getLogger(__name__)

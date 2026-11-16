@@ -135,7 +135,7 @@ class Parser:
                 line_index += 1
 
 
-        return title, np.array(U), np.array(S), np.array(Vt), np.array(grid)
+        return title, np.array(U), np.array(S).squeeze(), np.array(Vt), np.array(grid).squeeze()
     
 
 

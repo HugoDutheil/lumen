@@ -1,5 +1,5 @@
 import numpy as np
-from lumen.parser import Parser
+from src.lumen.parser import Parser
 import os
 
 parser: Parser = Parser()
