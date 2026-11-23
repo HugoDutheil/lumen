@@ -1,5 +1,6 @@
 import numpy as np
-from lumen.parser import Parser
+from lumen.PCA.parser import Parser
+import os 
 
 parser: Parser = Parser()
 
@@ -33,10 +34,12 @@ Vt_test = np.array(
           [25.,26.,27.]]
          )
 
+grid_test = np.arange(0, 5, 1, dtype=float)
+
 title_test = "~/path/to/source/data.csv"
 save_file_path_test = "/tmp/matrix_test.mtx"
 
-parser.save(save_file_path_test, title_test, U_test, S_test, Vt_test)
+parser.save(save_file_path_test, title_test, U_test, S_test, Vt_test, grid_test)
 
 with open(save_file_path_test, "r") as f:
     contents: str = f.read()
@@ -53,11 +56,17 @@ expected = (
     "&\n"
     "19.0 20.0 21.0\n"
     "22.0 23.0 24.0\n"
-    "25.0 26.0 27.0"
+    "25.0 26.0 27.0\n"
+    "&\n"
+    "0.0\n"
+    "1.0\n"
+    "2.0\n"
+    "3.0\n"
+    "4.0"
 )
 test_saving(contents, expected)
 
-U_recup, S_recup, Vt_recup = parser.parse(save_file_path_test)
+title, U_recup, S_recup, Vt_recup, grid_recup = parser.parse(save_file_path_test)
 
 test_parsing("U", U_recup, U_test)
 test_parsing("S", S_recup, S_test)

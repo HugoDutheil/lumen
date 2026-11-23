@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO)
 def test_on_mixtures(do_training: bool = True) -> None:
     file = os.path.join(
                 os.path.dirname(__file__),
-                "../../data/scrambled/pure/Primpke_FTIR_Microplastics_converted_scrambled_pure.csv"
+                "../../data/Primpke_FTIR_Microplastics_converted.csv"
             )
     if do_training:
         succeeded = train(
@@ -34,10 +34,11 @@ def test_on_mixtures(do_training: bool = True) -> None:
     parser = Parser()
     training_file, U, S, Vt, filtered_grid = parser.parse(os.path.join(os.path.dirname(__file__), "../../data/test_matrix.mtx"))
     print(U.shape, S.shape, Vt.shape, filtered_grid.shape)
-    
-    PCA_matrix = (U*S.squeeze())@Vt
+    S = S.squeeze()
+    filtered_grid = filtered_grid.squeeze()
+    PCA_matrix = (U*S)@Vt
     np.nan_to_num(PCA_matrix, nan=0.)
-    scores = U*S.squeeze()
+    scores = U*S
 
     print("Scores", scores.shape)
       

@@ -3,7 +3,7 @@ import os
 import logging
 
 logger: logging.Logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 class Parser:
@@ -15,7 +15,7 @@ class Parser:
 
         return os.access(path, os.W_OK)
 
-    def split_dir_file(self, path: os.PathLike) -> tuble[os.PathLike, os.PathLike]:
+    def split_dir_file(self, path: os.PathLike) -> tuple[os.PathLike, os.PathLike]:
         print("Attempting to split ", path)
         if os.path.isdir(path):
             dir_name = path
