@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 from tqdm import tqdm
+from src import DATA
 
 
 nMixes = 1
@@ -84,17 +85,14 @@ def pad_columns(columns):
     return np.column_stack(padded)
 
 
-base_path = os.path.join(
-    os.path.dirname(__file__),
-    "../../../data"
-)
+base_path = DATA
 
 datasets_path = [
     file
     for f in os.listdir(base_path)
     if os.path.isfile(
         file := os.path.join(base_path, f)
-    )
+    ) and os.path.splitext(f)[-1] == ".csv"
 ]
 
 rng = np.random.default_rng()
@@ -139,7 +137,7 @@ for file in datasets_path:
 
             pure_headers.extend([
                 "",
-                f"{entry_name}_{scramble_idx + 1}"
+                f"{entry_name}@{scramble_idx + 1}"
             ])
 
             pure_subheaders.extend([

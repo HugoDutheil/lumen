@@ -71,6 +71,7 @@ title, U_recup, S_recup, Vt_recup, grid_recup = parser.parse(save_file_path_test
 test_parsing("U", U_recup, U_test)
 test_parsing("S", S_recup, S_test)
 test_parsing("Vt", Vt_recup, Vt_test)
+test_parsing("grid", grid_recup, grid_test)
 
 print("===== PASSED ALL TESTS ====")
 
