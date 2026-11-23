@@ -93,4 +93,40 @@ def analyze_pca(train_pca, train_labels, labels_names=None, k=5):
     print(f"\nOverall Closed-Form Linear MAE on PCA scores: {mae:.5f}")
     print("-------------------------------------------------------")
 
+import os
+import sys
+from pathlib import Path
 
+try:
+    from lumen.PCA.PCA import train as pca_pipeline_train
+    from lumen.PCA.parser import Parser
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from lumen.PCA.PCA import train as pca_pipeline_train
+    from lumen.PCA.parser import Parser
+
+def pca_baseline_basis(csv_path, mtx_path, grid, df_clean=None, retrain=True):
+    mtx_path = str(mtx_path)
+    if retrain or not os.path.exists(mtx_path):
+        if os.path.exists(mtx_path):
+            open(mtx_path, "w").close()               # Parser.save asks [y/n/c] when the file is not empty
+        if df_clean is None:
+            ok = pca_pipeline_train(data_base_path=str(csv_path), output_path=mtx_path,
+                                    min_wavenumber=float(grid[0]), max_wavenumber=float(grid[-1]),
+                                    step_size=float(grid[1] - grid[0]))
+        else:
+            U, S, Vt = np.linalg.svd(df_clean.values.astype(np.float64), full_matrices=False)
+            ok = Parser().save(mtx_path, str(csv_path), U, S, Vt, df_clean.columns.astype(float).to_numpy())
+        if not ok:
+            raise RuntimeError(f"The PCA pipeline could not write {mtx_path}")
+    title, U, S, Vt, basis_grid = Parser().parse(mtx_path)
+    print(f"[PCA pipeline] basis from {title}: {Vt.shape[0]} components on "
+          f"{basis_grid.squeeze()[0]:.0f}-{basis_grid.squeeze()[-1]:.0f} cm-1 ({Vt.shape[1]} points)")
+    return Vt, basis_grid.squeeze()
+
+def project_on_basis(X, wn, Vt, basis_grid, n_components):
+    """Spectra on the DL grid `wn` -> scores on the first n_components of the PCA pipeline's basis."""
+    X = np.asarray(X, dtype=np.float64)
+    if len(basis_grid) != len(wn) or not np.allclose(basis_grid, wn):
+        X = np.array([np.interp(basis_grid, wn, x) for x in X])   # resample onto the basis grid
+    return (X @ Vt[:n_components].T).astype(np.float32)

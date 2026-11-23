@@ -125,8 +125,10 @@ def train_mlp(train_data, train_labels, model, detection_criterion, concentratio
 def test_mlp(test_data, test_labels, model, weights_pth, hidden_dim=512, presence_threshold=0.5, labels=None):
     # must match training-time args exactly
     print(f"The shape of the train dataset is {len(test_data[0])}")
-    model = MLP(input_dim=len(test_data[0]), hidden_dim=hidden_dim)  
-    model.load_state_dict(torch.load(weights_pth, map_location="cpu"))
+    state = torch.load(weights_pth, map_location="cpu")
+    compounds = state["detection_head.weight"].shape[0]      # 144 for PSLC, 380 for Primpke...
+    model = MLP(input_dim=len(test_data[0]), hidden_dim=hidden_dim, compounds=compounds)
+    model.load_state_dict(state)
     model.eval()
     
     with torch.no_grad():

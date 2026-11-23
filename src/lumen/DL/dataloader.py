@@ -4,8 +4,7 @@ import pandas as pd
 import numpy as np
 from scipy.interpolate import interp1d
 
-
-def parse_csv(csv_path, target_grid=np.linspace(400,4000,3601)):
+def parse_csv(csv_path, target_grid=None, wn_range=None, step=1.0):
     # Read raw CSV without headers
     raw_df = pd.read_csv(csv_path, header=None, low_memory=False)
     compound_names = raw_df.iloc[0].values
@@ -15,6 +14,7 @@ def parse_csv(csv_path, target_grid=np.linspace(400,4000,3601)):
     num_cols = data_values.shape[1]
     spectra_list = []
     metadata = []
+    raw_spectra = []
 
     for i in range(0, num_cols-1, 2):
         name = str(compound_names[i])
@@ -43,6 +43,18 @@ def parse_csv(csv_path, target_grid=np.linspace(400,4000,3601)):
             intens_clipped = np.clip(intens, 1e-4, 1.0)
             intens = -np.log10(intens_clipped)
 
+        raw_spectra.append((name, measurement_type, wn, intens))
+    if target_grid is None:
+        if wn_range is None:
+            wn_range = (max(s[2][0] for s in raw_spectra), min(s[2][-1] for s in raw_spectra))
+        lo, hi = np.ceil(wn_range[0]), np.floor(wn_range[1])
+        target_grid = np.arange(lo, hi+step/2, step)
+    target_grid = np.asarray(target_grid, dtype=float)
+    n_extrapolated = 0
+    for name, measurement_type, wn, intens in raw_spectra:
+        if wn[0] > target_grid[0] or wn[-1] < target_grid[-1]:
+            n_extrapolated += 1
+
         # Interpolate to target grid
         interpolator = interp1d(wn, intens, kind='linear', bounds_error=False, fill_value="extrapolate")
         resampled_intens = interpolator(target_grid)
@@ -50,7 +62,10 @@ def parse_csv(csv_path, target_grid=np.linspace(400,4000,3601)):
         metadata.append((name, measurement_type))
 
     # Prepare DataFrame with target grid as columns and compound names as index
-
+    print(f"[parse_csv] {len(spectra_list)} spectra on {target_grid[0]:.0f}-{target_grid[-1]:.0f} cm-1 "
+    f"(step {target_grid[1] - target_grid[0]:g}, {len(target_grid)} points)")
+    if n_extrapolated: 
+        print(f"[parse_csv] warning: {n_extrapolated} spectra do not cover this range")
     X = pd.DataFrame(
     spectra_list, columns=[f"{w:.2f}" for w in target_grid], index=metadata
     )

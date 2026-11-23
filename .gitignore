@@ -6,6 +6,7 @@ dist/
 wheels/
 data/
 weights/
+results/error_analysis/
 *.egg-info
 .DS_Store
 conf.yaml

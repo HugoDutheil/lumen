@@ -30,6 +30,8 @@ def add_noise(signal, snr_db, rng):
     noise_power = signal_power / (10 ** (snr_db / 10))
     return signal + rng.normal(0, np.sqrt(noise_power), size=signal.shape).astype(np.float32)
 
+# Realistic noise: high at low frequency, low at high frequency (more sampling), make noise in fourier transform space scale linearly with frequency. Then add th noie to the spectra using the inverse fourier transform of the noise
+
 
 
 def data_generator(data, num_samples=200, seed=42, snr_range_db=(10,40), n_components=(2,8), baseline_frac=0.05):
